@@ -13,12 +13,14 @@ import threading
 import re
 from pathlib import Path
 
-# このスクリプトのあるディレクトリ
+# このスクリプトのあるディレクトリをPATHに追加（ffmpegを確実に見つけるため）
 BASE_DIR = Path(__file__).parent.resolve()
+os.environ["PATH"] = str(BASE_DIR) + os.pathsep + os.environ.get("PATH", "")
+
 YTDLP_PATH  = BASE_DIR / 'yt-dlp.exe'
 FFMPEG_PATH = BASE_DIR / 'ffmpeg.exe'
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 
 # ========================================================
@@ -120,22 +122,21 @@ def download(url: str, fmt: str, quality: str, output_dir: str | None):
 
         ffmpeg_loc = str(FFMPEG_PATH) if FFMPEG_PATH.exists() else 'ffmpeg'
         
+        class Logger:
+            def debug(self, msg): 
+                if msg.startswith('[debug] '): sys.stderr.write(msg + '\n')
+            def warning(self, msg): sys.stderr.write(msg + '\n')
+            def error(self, msg): sys.stderr.write(msg + '\n')
+
         ydl_opts = {
             'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
             'progress_hooks': [progress_hook],
-            'quiet': True,
-            'no_warnings': True,
+            'logger': Logger(),
+            'no_warnings': False,
             'noprogress': True,
-            'ffmpeg_location': ffmpeg_loc,
             'writethumbnail': True,
             'source_address': '0.0.0.0',
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'web'],
-                    'skip': ['hls', 'dash']
-                }
-            }
         }
 
         if fmt in ['mp3', 'm4a']:
@@ -152,13 +153,16 @@ def download(url: str, fmt: str, quality: str, output_dir: str | None):
                 }
             ]
         elif fmt == 'mp4':
-            res = quality if quality.isdigit() else 'best'
-            if res == 'best':
-                ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
-            else:
-                ydl_opts['format'] = f'bestvideo[height<={res}][ext=mp4]+bestaudio[ext=m4a]/best[height<={res}]'
+            res = quality if quality.isdigit() else '1080'
+            # MP4(h264) + M4A(aac) の組み合わせを最優先で探し、なければ最高画質を拾う
+            ydl_opts['format'] = f'bestvideo[height<={res}][ext=mp4]+bestaudio[ext=m4a]/best[height<={res}][ext=mp4]/bestvideo[height<={res}]+bestaudio/best'
             ydl_opts['merge_output_format'] = 'mp4'
+            # 合体時の変換引数をより明示的に（-acodec aac を使用）
+            ydl_opts['postprocessor_args'] = {
+                'merger': ['-vcodec', 'copy', '-acodec', 'aac']
+            }
             ydl_opts['postprocessors'] = [{'key': 'FFmpegMetadata', 'add_metadata': True}]
+            ydl_opts['prefer_ffmpeg'] = True
         else:
             ydl_opts['format'] = 'bestvideo+bestaudio/best'
             ydl_opts['merge_output_format'] = 'mp4'

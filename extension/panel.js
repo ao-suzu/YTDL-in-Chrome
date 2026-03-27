@@ -163,6 +163,14 @@ async function detectVideo() {
 
   els.notYouTube.style.display = 'none';
   els.ytContent.style.display = 'block';
+
+  // 前回の情報をクリア（キャッシュクリア）
+  currentPageInfo = null; 
+  els.videoTitle.textContent = '読み込み中...';
+  els.thumbnailWrap.innerHTML = '<div class="loading-spinner"></div>'; 
+  els.downloadBtn.disabled = true; // 検出完了までボタンを無効化
+  els.downloadBtn.style.opacity = '0.5';
+
   els.urlInput.value = url;
 
   let fallbackTitle = tab.title || url;
@@ -226,6 +234,8 @@ async function detectVideo() {
       }
 
       els.videoTitle.textContent = info.title || fallbackTitle;
+      els.downloadBtn.disabled = false; // 検出完了
+      els.downloadBtn.style.opacity = '1';
       
       const badgeText = isPlaylistDisplay ? 'PLAYLIST' : 'VIDEO';
       const badgeHtml = `<div class="type-badge">${badgeText}</div>`;
@@ -271,6 +281,8 @@ async function detectVideo() {
     }
 
     els.videoTitle.textContent = fallbackTitle;
+    els.downloadBtn.disabled = false;
+    els.downloadBtn.style.opacity = '1';
     
     const badgeText = (hasListParamsFallback || isPlaylistOnlyFallback) ? 'PLAYLIST' : 'VIDEO';
     const badgeHtml = `<div class="type-badge">${badgeText}</div>`;
