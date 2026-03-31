@@ -61,11 +61,41 @@ async function init() {
     if (res?.settings?.outputDir) els.outputDir.value = res.settings.outputDir;
   });
 
-  // 定期的にキューと履歴を更新
+  // dlListのイベント委譲（Event Delegation）によるクリック判定
+  // 画面の再描画中にクリックされても無反応になるのを防ぐ
+  els.dlList.addEventListener('click', e => {
+    const cancelBtn = e.target.closest('.cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.style.opacity = '0.5'; // 押した瞬間のフィードバック
+      chrome.runtime.sendMessage({ action: 'cancel', id: parseInt(cancelBtn.dataset.id) });
+      return;
+    }
+    const pauseBtn = e.target.closest('.pause-btn');
+    if (pauseBtn) {
+      pauseBtn.style.opacity = '0.5';
+      chrome.runtime.sendMessage({ action: 'pause', id: parseInt(pauseBtn.dataset.id) });
+      return;
+    }
+    const resumeBtn = e.target.closest('.resume-btn');
+    if (resumeBtn) {
+      resumeBtn.style.opacity = '0.5';
+      chrome.runtime.sendMessage({ action: 'resume', id: parseInt(resumeBtn.dataset.id) });
+      return;
+    }
+  });
+
+let currentTasks = [];
+let currentHistory = [];
+
+  // 初回のみ取得
   updateQueue();
   chrome.runtime.onMessage.addListener(msg => {
-    if (msg.action === 'queueUpdate' || msg.action === 'historyUpdate') {
-      updateQueue(); 
+    if (msg.action === 'queueUpdate') {
+      currentTasks = msg.tasks || [];
+      renderCombinedList();
+    } else if (msg.action === 'historyUpdate') {
+      currentHistory = msg.history || [];
+      renderCombinedList();
     }
   });
 
@@ -102,6 +132,11 @@ function setupTabs() {
       
       tab.classList.add('active');
       document.getElementById(tab.dataset.target).classList.add('active');
+
+      // ダウンロードタブを開いた時、念のため最新状態を同期
+      if (tab.dataset.target === 'page-dl') {
+        updateQueue();
+      }
     });
   });
 }
@@ -361,22 +396,28 @@ function setupDownloadAction() {
 async function updateQueue() {
   chrome.runtime.sendMessage({ action: 'getQueue' }, qRes => {
     chrome.runtime.sendMessage({ action: 'getHistory' }, hRes => {
-      const tasks = (qRes?.tasks || []).concat(hRes?.history || []);
-      
-      // IDで重複排除し、新しい順
-      const uniqueTasks = [];
-      const seen = new Set();
-      tasks.forEach(t => {
-        if (!seen.has(t.id)) {
-          seen.add(t.id);
-          uniqueTasks.push(t);
-        }
-      });
-      uniqueTasks.sort((a,b) => b.id - a.id);
-
-      renderList(uniqueTasks);
+      currentTasks = qRes?.tasks || [];
+      currentHistory = hRes?.history || [];
+      renderCombinedList();
     });
   });
+}
+
+function renderCombinedList() {
+  const tasks = currentTasks.concat(currentHistory);
+  
+  // IDで重複排除し、新しい順
+  const uniqueTasks = [];
+  const seen = new Set();
+  tasks.forEach(t => {
+    if (!seen.has(t.id)) {
+      seen.add(t.id);
+      uniqueTasks.push(t);
+    }
+  });
+  uniqueTasks.sort((a,b) => b.id - a.id);
+
+  renderList(uniqueTasks);
 }
 
 function formatRelativeDate(ts) {
@@ -431,6 +472,7 @@ function renderList(tasks) {
       if (t.status === 'paused') { statText = '一時停止'; statCls = 'status-paused'; pCls = 'paused'; }
 
       let subLine = `${t.format.toUpperCase()} • ${t.percentText || (t.percent ? t.percent+'%' : '')}`;
+      if (t.sizeStr) subLine += ` (${t.sizeStr})`;
       if (t.speed) subLine += ` • ${t.speed}`;
 
       // 各種コントロールボタン（右側に配置するためのコンテナに）
@@ -515,22 +557,6 @@ function renderList(tasks) {
 
   els.dlList.innerHTML = html;
 
-  // ボタンリスナー
-  els.dlList.querySelectorAll('.cancel-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      chrome.runtime.sendMessage({ action: 'cancel', id: parseInt(e.currentTarget.dataset.id) });
-    });
-  });
-  els.dlList.querySelectorAll('.pause-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      chrome.runtime.sendMessage({ action: 'pause', id: parseInt(e.currentTarget.dataset.id) });
-    });
-  });
-  els.dlList.querySelectorAll('.resume-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      chrome.runtime.sendMessage({ action: 'resume', id: parseInt(e.currentTarget.dataset.id) });
-    });
-  });
 }
 
 init();

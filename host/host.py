@@ -8,10 +8,10 @@ import sys
 import os
 import json
 import struct
-import subprocess
+import time
 import threading
-import re
 from pathlib import Path
+
 
 # このスクリプトのあるディレクトリをPATHに追加（ffmpegを確実に見つけるため）
 BASE_DIR = Path(__file__).parent.resolve()
@@ -39,12 +39,15 @@ def read_message():
     return json.loads(raw_msg.decode('utf-8'))
 
 
+write_lock = threading.Lock()
+
 def send_message(msg: dict):
     """Chromeへメッセージを送る（4バイトのLE長 + JSON）"""
     data = json.dumps(msg, ensure_ascii=False).encode('utf-8')
-    sys.stdout.buffer.write(struct.pack('<I', len(data)))
-    sys.stdout.buffer.write(data)
-    sys.stdout.buffer.flush()
+    with write_lock:
+        sys.stdout.buffer.write(struct.pack('<I', len(data)))
+        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.flush()
 
 
 # ========================================================
@@ -84,27 +87,66 @@ class CropSquarePP(PostProcessor):
                 pass
         return [], info
 
+def format_bytes(bytes_num):
+    if not bytes_num: return "0MB"
+    mb = bytes_num / (1024 * 1024)
+    if mb >= 1024:
+        return f"{mb/1024:.2f}GB"
+    else:
+        return f"{mb:.1f}MB"
+
+last_progress_time = 0
+progress_lock = threading.Lock()
+
 def progress_hook(d):
-    if d['status'] == 'downloading':
-        percent = 0
-        if d.get('total_bytes'):
-            percent = (d.get('downloaded_bytes', 0) / d['total_bytes']) * 100
-        elif d.get('total_bytes_estimate'):
-            percent = (d.get('downloaded_bytes', 0) / d['total_bytes_estimate']) * 100
+    global last_progress_time
+    status = d.get('status')
+    
+    if status == 'downloading':
+        now = time.time()
         
+        # マルチスレッドによる競合を防ぐ
+        with progress_lock:
+            # 0.5秒未満の連続送信を防ぐ（スロットリング）
+            if now - last_progress_time < 0.5:
+                return
+            last_progress_time = now
+        
+        percent = 0
+        total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+        downloaded = d.get('downloaded_bytes', 0)
+        
+        if total_bytes:
+            percent = (downloaded / total_bytes) * 100
+            
         speed = d.get('speed', 0)
         eta = d.get('eta', 0)
         
         speed_str = f"{speed/1024/1024:.2f}MiB/s" if speed else ""
         eta_str = f"{eta//60:02d}:{eta%60:02d}" if eta else ""
         
+        total_str = format_bytes(total_bytes)
+        dl_str = format_bytes(downloaded)
+        size_str = f"{dl_str} / {total_str}" if total_bytes else f"{dl_str}"
+        
         send_message({
             'type': 'progress',
             'percent': f"{percent:.1f}%",
             'percentNum': float(percent),
             'speed': speed_str,
-            'eta': eta_str
+            'eta': eta_str,
+            'sizeStr': size_str
         })
+    elif status == 'finished':
+        send_message({
+            'type': 'progress',
+            'percent': "100.0%",
+            'percentNum': 100.0,
+            'speed': "",
+            'eta': "00:00",
+            'sizeStr': "完了"
+        })
+
 
 def download(url: str, fmt: str, quality: str, output_dir: str | None):
     if not HAS_YTDLP:
@@ -122,21 +164,31 @@ def download(url: str, fmt: str, quality: str, output_dir: str | None):
 
         ffmpeg_loc = str(FFMPEG_PATH) if FFMPEG_PATH.exists() else 'ffmpeg'
         
+        log_file = BASE_DIR / 'host_debug.log'
         class Logger:
-            def debug(self, msg): 
-                if msg.startswith('[debug] '): sys.stderr.write(msg + '\n')
-            def warning(self, msg): sys.stderr.write(msg + '\n')
-            def error(self, msg): sys.stderr.write(msg + '\n')
+            def debug(self, msg):
+                pass # debug 出力は捨てる（バッファ詰まりの最大の原因）
+            def warning(self, msg):
+                try:
+                    with open(log_file, 'a', encoding='utf-8') as f: f.write(msg + '\n')
+                except Exception:
+                    pass
+            def error(self, msg):
+                try:
+                    with open(log_file, 'a', encoding='utf-8') as f: f.write(msg + '\n')
+                except Exception:
+                    pass
 
         ydl_opts = {
             'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
             'progress_hooks': [progress_hook],
             'logger': Logger(),
-            'no_warnings': False,
+            'no_warnings': True, # 警告も最小限にする
             'noprogress': True,
             'writethumbnail': True,
             'source_address': '0.0.0.0',
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'concurrent_fragment_downloads': 5, # 並行処理で高速化
         }
 
         if fmt in ['mp3', 'm4a']:
@@ -286,10 +338,8 @@ def main():
             if not url:
                 send_message({'type': 'done', 'success': False, 'error': 'URLが指定されていません'})
             else:
-                # 別スレッドで実行（stdoutブロッキング対策）
-                t = threading.Thread(target=download, args=(url, fmt, quality, output_dir), daemon=True)
-                t.start()
-                t.join()  # 1ダウンロードずつ処理
+                # 無意味なスレッド処理を削除し、直接実行
+                download(url, fmt, quality, output_dir)
 
         else:
             send_message({'type': 'error', 'error': f'不明なアクション: {action}'})

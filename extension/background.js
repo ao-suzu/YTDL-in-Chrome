@@ -12,6 +12,7 @@ const MAX_CONCURRENT = 5; // 同時ダウンロード制限
 // ダウンロード状態をメモリで管理（service workerのライフタイム内）
 const downloadQueue = new Map(); // id -> DownloadTask
 let nextId = 1;
+let historyCache = []; // ディスク（Storage）アクセスを減らすためのキャッシュ
 
 // ダウンロードタスクの構造:
 // { id, url, title, format, quality, outputDir, status, percent, speed, eta, path, error, startedAt, completedAt }
@@ -28,7 +29,9 @@ async function persistState() {
 
 // storage から状態を復元（SW再起動後）
 async function restoreState() {
-  const { downloadQueue: saved } = await chrome.storage.local.get('downloadQueue');
+  const { downloadQueue: saved, downloadHistory: hist } = await chrome.storage.local.get(['downloadQueue', 'downloadHistory']);
+  if (hist) historyCache = hist;
+
   if (!saved) return;
   for (const task of saved) {
     // 実行中だったものは中断状態に変更
@@ -52,8 +55,8 @@ function broadcast(msg) {
 async function startDownload(task) {
   task.status = 'pending';
   downloadQueue.set(task.id, task);
-  await persistState();
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+  await persistState();
   processQueue();
 }
 
@@ -87,15 +90,15 @@ async function startDownloadProcess(task) {
   } catch (e) {
     task.status = 'error';
     task.error = 'Native Hostに接続できません。install.bat を実行してください。';
-    await persistState();
     broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+    await persistState();
     return;
   }
 
   task.status = 'downloading';
   task._port = port;
-  await persistState();
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+  await persistState();
 
   port.onMessage.addListener(async (msg) => {
     if (msg.type === 'progress') {
@@ -103,6 +106,8 @@ async function startDownloadProcess(task) {
       task.speed   = msg.speed || '';
       task.eta     = msg.eta || '';
       task.percentText = msg.percent || '';
+      if (msg.sizeStr) task.sizeStr = msg.sizeStr;
+      
       broadcast({ action: 'queueUpdate', tasks: getTaskList() });
     } else if (msg.type === 'done') {
       if (msg.success) {
@@ -115,9 +120,9 @@ async function startDownloadProcess(task) {
         task.error  = msg.error || '不明なエラー';
       }
       task._port = null;
+      broadcast({ action: 'queueUpdate', tasks: getTaskList() });
       await persistState();
       await appendHistory(task);
-      broadcast({ action: 'queueUpdate', tasks: getTaskList() });
       port.disconnect();
       processQueue();
     }
@@ -128,8 +133,8 @@ async function startDownloadProcess(task) {
       task.status = 'error';
       task.error  = chrome.runtime.lastError?.message || '接続が切断されました';
       task._port = null;
-      await persistState();
       broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+      await persistState();
       processQueue();
     }
   });
@@ -147,8 +152,8 @@ async function startDownloadProcess(task) {
 async function startDownload(task) {
   task.status = 'pending';
   downloadQueue.set(task.id, task);
-  await persistState();
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+  await persistState();
   processQueue();
 }
 
@@ -167,8 +172,8 @@ async function cancelDownload(id) {
     task._port = null;
   }
   task.status = 'cancelled';
-  await persistState();
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+  await persistState();
   processQueue();
 }
 
@@ -178,8 +183,8 @@ async function clearCompleted() {
       downloadQueue.delete(id);
     }
   }
-  await persistState();
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+  await persistState();
 }
 
 // ========================================
@@ -187,21 +192,20 @@ async function clearCompleted() {
 // ========================================
 
 async function appendHistory(task) {
-  const { downloadHistory = [] } = await chrome.storage.local.get('downloadHistory');
   const { _port, ...clean } = task;
-  downloadHistory.unshift(clean);
+  historyCache.unshift(clean);
   // 最大100件
-  const trimmed = downloadHistory.slice(0, 100);
-  await chrome.storage.local.set({ downloadHistory: trimmed });
-  broadcast({ action: 'historyUpdate', history: trimmed });
+  historyCache = historyCache.slice(0, 100);
+  await chrome.storage.local.set({ downloadHistory: historyCache });
+  broadcast({ action: 'historyUpdate', history: historyCache });
 }
 
 async function getHistory() {
-  const { downloadHistory = [] } = await chrome.storage.local.get('downloadHistory');
-  return downloadHistory;
+  return historyCache;
 }
 
 async function clearHistory() {
+  historyCache = [];
   await chrome.storage.local.set({ downloadHistory: [] });
   broadcast({ action: 'historyUpdate', history: [] });
 }
@@ -287,10 +291,37 @@ async function handle(req, sendResponse) {
 
       case 'downloadPlaylist': {
         const { url, format, quality, outputDir, createFolder } = req;
+        
+        // 情報取得中のプレースホルダー（ダミー）タスクを表示させる
+        const mockTaskId = nextId++;
+        const mockTask = {
+          id:          mockTaskId,
+          url:         url,
+          title:       'プレイリスト情報の取得中...',
+          thumbnail:   null,
+          format:      format   || 'mp3',
+          quality:     quality  || '192k',
+          outputDir:   outputDir || null,
+          status:      'pending',
+          percent:     0,
+          percentText: '0%',
+          speed:       '',
+          eta:         '',
+          path:        '',
+          error:       '',
+          startedAt:   Date.now(),
+          completedAt: null,
+          _port:       null,
+        };
+        downloadQueue.set(mockTaskId, mockTask);
+        broadcast({ action: 'queueUpdate', tasks: getTaskList() });
+
         // Native Hostにプレイリスト情報を要求
         try {
           const port = chrome.runtime.connectNative(HOST_NAME);
           port.onMessage.addListener(msg => {
+            downloadQueue.delete(mockTaskId); // ダミーを削除
+
             if (msg.type === 'playlistData') {
               const entries = msg.entries || [];
               let finalOutputDir = outputDir;
@@ -336,6 +367,8 @@ async function handle(req, sendResponse) {
           port.postMessage({ action: 'getPlaylist', url: url });
           sendResponse({ success: true }); // 受け付け完了
         } catch(e) {
+          downloadQueue.delete(mockTaskId);
+          broadcast({ action: 'queueUpdate', tasks: getTaskList() });
           sendResponse({ success: false, error: e.message });
         }
         break;
