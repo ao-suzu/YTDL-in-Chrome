@@ -2,8 +2,8 @@
 // ダウンロードキューをバックグラウンドで管理し、popup/sidebar閉じても継続
 
 const HOST_NAME = 'com.ytdownloader.host';
-const VERSION = '1.0.0';
-const MAX_CONCURRENT = 5; // 同時ダウンロード制限
+const VERSION = '1.1.0';
+const MAX_CONCURRENT = 1; // 同時ダウンロード制限（1本ずつ処理でffmpeg変換が最速）
 
 // ========================================
 // 状態管理（メモリ + storage）
@@ -52,17 +52,17 @@ function broadcast(msg) {
 // ダウンロード処理
 // ========================================
 
+
+function getActiveCount() {
+  return Array.from(downloadQueue.values()).filter(t => t.status === 'downloading').length;
+}
+
 async function startDownload(task) {
   task.status = 'pending';
   downloadQueue.set(task.id, task);
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
   await persistState();
   processQueue();
-}
-
-// 実行中の数をカウント
-function getActiveCount() {
-  return Array.from(downloadQueue.values()).filter(t => t.status === 'downloading').length;
 }
 
 // キューを処理する
@@ -146,15 +146,6 @@ async function startDownloadProcess(task) {
     quality:   task.quality,
     outputDir: task.outputDir || null,
   });
-}
-
-// 元のstartDownloadを分割して、ステータス変更とプロセス開始を分離
-async function startDownload(task) {
-  task.status = 'pending';
-  downloadQueue.set(task.id, task);
-  broadcast({ action: 'queueUpdate', tasks: getTaskList() });
-  await persistState();
-  processQueue();
 }
 
 function getTaskList() {

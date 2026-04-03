@@ -38,8 +38,13 @@ const els = {
 };
 
 let currentPageInfo = null;
+let currentTasks = [];
+let currentHistory = [];
 
 async function init() {
+  const versionSpan = document.getElementById('appVersion');
+  if (versionSpan) versionSpan.textContent = 'v' + chrome.runtime.getManifest().version;
+
   setupTabs();
   setupSettings();
   setupDownloadAction();
@@ -83,9 +88,6 @@ async function init() {
       return;
     }
   });
-
-let currentTasks = [];
-let currentHistory = [];
 
   // 初回のみ取得
   updateQueue();

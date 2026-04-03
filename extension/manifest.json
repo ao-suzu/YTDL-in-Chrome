@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YT Downloader",
   "description": "YouTubeの動画・音楽をローカルにダウンロード",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "permissions": [
     "nativeMessaging",
     "activeTab",

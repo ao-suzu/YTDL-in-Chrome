@@ -1,0 +1,9 @@
+﻿{
+  "name": "com.ytdownloader.host",
+  "description": "YT Downloader Native Messaging Host",
+  "path": "C:\\\\Users\\\\haru\\\\dev\\\\YT\\\\original\\\\host\\\\host_runner.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://badhhnmpicmniifnmmimaaedbgfmhnei/"
+  ]
+}

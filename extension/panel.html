@@ -299,7 +299,7 @@
   <svg viewBox="0 0 24 24" fill="white">
     <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.84 1.56V6.79a4.85 4.85 0 01-1.07-.1z"/>
   </svg>
-  <h1 style="flex:1;">YT Downloader</h1>
+  <h1 style="flex:1;">YT Downloader <span id="appVersion" style="font-size:10px; color:#aaa; font-weight:normal; vertical-align:middle; margin-left:4px;"></span></h1>
   <button id="btnReload" style="background:none; border:none; color:white; cursor:pointer;" title="現在の動画情報を再取得">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
   </button>
@@ -337,7 +337,7 @@
         <select id="formatSelect">
           <option value="mp3">🎵 MP3</option>
           <option value="mp4">🎬 MP4</option>
-          <option value="m4a">🎵 M4A</option>
+          <option value="m4a" selected>🎵 M4A</option>
           <option value="best">⭐ 最高品質</option>
         </select>
       </div>
@@ -384,7 +384,7 @@
         <select id="manualFormatSelect">
           <option value="mp3">🎵 MP3</option>
           <option value="mp4">🎬 MP4</option>
-          <option value="m4a">🎵 M4A</option>
+          <option value="m4a" selected>🎵 M4A</option>
           <option value="best">⭐ 最高品質</option>
         </select>
       </div>
@@ -398,6 +398,13 @@
       </div>
     </div>
     <button id="manualDownloadBtn" class="btn-download" style="background:#444; color:#fff;">⬇ URLからダウンロード</button>
+    
+    <div style="margin-top:15px; padding:10px; background:rgba(255,255,255,0.05); border-radius:6px; border-left:3px solid #ffcc00;">
+      <p style="font-size:11px; color:#ddd; line-height:1.5;">
+        <strong style="color:#ffcc00;">💡 おすすめの形式は「M4A」です</strong><br>
+        MP3は変換処理に時間がかかりますが、M4AならYouTubeの音質を落とさず、<strong style="color:#fff;">数倍速くダウンロード</strong>できます。iPodやWalkman、スマホでもそのまま再生可能です。
+      </p>
+    </div>
   </div>
 </div>
 
