@@ -29,7 +29,7 @@ if (-not $PythonPath) {
 Write-Host ""
 Write-Host "Installing Python dependencies (yt-dlp, pillow)..." -ForegroundColor Yellow
 try {
-    & $PythonPath -m pip install -U yt-dlp pillow
+    & $PythonPath -m pip install -U yt-dlp pillow mutagen
     Write-Host "[OK] Dependencies installed!" -ForegroundColor Green
 } catch {
     Write-Host "[ERROR] Failed to install dependencies: $_" -ForegroundColor Red

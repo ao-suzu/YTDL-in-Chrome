@@ -340,8 +340,10 @@ def download(url: str, fmt: str, quality: str, output_dir: str | None):
                 ydl.add_post_processor(EmbedThumbnailPP())
                 log.debug('PP chain: FFmpegThumbnailsConvertor -> CropSquare -> EmbedThumbnail')
             else:
+                # MP4もwebp→jpg変換してから埋め込む（webpのままだとffmpegが失敗する）
+                ydl.add_post_processor(FFmpegThumbnailsConvertorPP(ydl, 'jpg'))
                 ydl.add_post_processor(EmbedThumbnailPP())
-                log.debug('PP chain: EmbedThumbnail')
+                log.debug('PP chain: FFmpegThumbnailsConvertor -> EmbedThumbnail')
 
             info = ydl.extract_info(url, download=True)
             log.info('extract_info completed')
