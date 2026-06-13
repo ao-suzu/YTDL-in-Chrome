@@ -18,7 +18,34 @@ from logging.handlers import RotatingFileHandler
 
 # このスクリプトのあるディレクトリをPATHに追加（ffmpegを確実に見つけるため）
 BASE_DIR = Path(__file__).parent.resolve()
-os.environ["PATH"] = str(BASE_DIR) + os.pathsep + os.environ.get("PATH", "")
+pathes = [str(BASE_DIR)]
+
+# Node.js や Deno の標準的なインストールパスを追加
+pf = os.environ.get("ProgramFiles")
+if pf:
+    pathes.append(str(Path(pf) / "nodejs"))
+pf86 = os.environ.get("ProgramFiles(x86)")
+if pf86:
+    pathes.append(str(Path(pf86) / "nodejs"))
+
+appdata = os.environ.get("APPDATA")
+if appdata:
+    pathes.append(str(Path(appdata) / "npm"))
+localappdata = os.environ.get("LOCALAPPDATA")
+if localappdata:
+    pathes.append(str(Path(localappdata) / "deno" / "bin"))
+    pathes.append(str(Path(localappdata) / "Programs" / "node"))
+
+userprofile = os.environ.get("USERPROFILE")
+if userprofile:
+    pathes.append(str(Path(userprofile) / ".deno" / "bin"))
+
+# 重複を排除しつつ、現在の PATH に結合
+existing_path = os.environ.get("PATH", "")
+path_list = [p for p in pathes if os.path.exists(p)]
+if path_list:
+    os.environ["PATH"] = os.pathsep.join(path_list) + os.pathsep + existing_path
+
 
 YTDLP_PATH  = BASE_DIR / 'yt-dlp.exe'
 FFMPEG_PATH = BASE_DIR / 'ffmpeg.exe'
@@ -159,11 +186,12 @@ def format_bytes(bytes_num):
         return f"{mb:.1f}MB"
 
 
+last_sent_percent = 0.0
 last_progress_time = 0
 progress_lock = threading.Lock()
 
 def progress_hook(d):
-    global last_progress_time
+    global last_progress_time, last_sent_percent
     status = d.get('status')
 
     if status == 'downloading':
@@ -173,11 +201,29 @@ def progress_hook(d):
                 return
             last_progress_time = now
 
-        percent = 0
+        percent = 0.0
         total_bytes  = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
         downloaded   = d.get('downloaded_bytes', 0)
         if total_bytes:
-            percent = (downloaded / total_bytes) * 100
+            percent = (downloaded / total_bytes) * 100.0
+
+        # マージダウンロード時の進捗補正
+        requested_formats = d.get('info_dict', {}).get('requested_formats')
+        tmpfilename = d.get('tmpfilename') or d.get('filename') or ''
+        if requested_formats and len(requested_formats) == 2:
+            format_id_0 = requested_formats[0].get('format_id')
+            format_id_1 = requested_formats[1].get('format_id')
+            
+            if format_id_0 and format_id_0 in tmpfilename:
+                percent = percent * 0.85
+            elif format_id_1 and format_id_1 in tmpfilename:
+                percent = 85.0 + (percent * 0.15)
+
+        # 進捗の逆戻り防止
+        if percent < last_sent_percent:
+            percent = last_sent_percent
+        else:
+            last_sent_percent = percent
 
         speed = d.get('speed', 0)
         eta   = d.get('eta', 0)
@@ -243,6 +289,9 @@ def postprocessor_hook(d):
 
 
 def download(url: str, fmt: str, quality: str, output_dir: str | None):
+    global last_sent_percent, last_progress_time
+    last_sent_percent = 0.0
+    last_progress_time = 0
     log.info(f'=== DOWNLOAD START === url={url} fmt={fmt} quality={quality} output_dir={output_dir}')
 
     if not HAS_YTDLP:
@@ -288,6 +337,11 @@ def download(url: str, fmt: str, quality: str, output_dir: str | None):
             'source_address': '0.0.0.0',
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'concurrent_fragment_downloads': 5,
+            'continuedl': True,
+            'nopart': False,
+            'retries': 10,
+            'fragment_retries': 20,
+            'socket_timeout': 30,
         }
 
         if fmt in ['mp3', 'm4a']:

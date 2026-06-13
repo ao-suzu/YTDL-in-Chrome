@@ -27,14 +27,46 @@ if (-not $PythonPath) {
 
 # Install yt-dlp and pillow via pip
 Write-Host ""
-Write-Host "Installing Python dependencies (yt-dlp, pillow)..." -ForegroundColor Yellow
+Write-Host "Installing Python dependencies (yt-dlp[default], pillow, mutagen)..." -ForegroundColor Yellow
 try {
-    & $PythonPath -m pip install -U yt-dlp pillow mutagen
+    & $PythonPath -m pip install -U "yt-dlp[default]" pillow mutagen
     Write-Host "[OK] Dependencies installed!" -ForegroundColor Green
 } catch {
     Write-Host "[ERROR] Failed to install dependencies: $_" -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
+}
+
+# Check for JS runtime (Deno or Node.js)
+Write-Host ""
+Write-Host "Checking for JavaScript runtime (Deno or Node.js)..." -ForegroundColor Yellow
+$HasDeno = $false
+$HasNode = $false
+
+try {
+    $denoVer = & deno --version 2>&1
+    if ($denoVer -match "deno") {
+        Write-Host "[OK] Deno found!" -ForegroundColor Green
+        $HasDeno = $true
+    }
+} catch {}
+
+if (-not $HasDeno) {
+    try {
+        $nodeVer = & node --version 2>&1
+        if ($nodeVer -match "v") {
+            Write-Host "[OK] Node.js found: $nodeVer" -ForegroundColor Green
+            $HasNode = $true
+        }
+    } catch {}
+}
+
+if (-not $HasDeno -and -not $HasNode) {
+    Write-Host ""
+    Write-Host "[WARNING] Node.js or Deno was not found in your PATH." -ForegroundColor Yellow
+    Write-Host "Without a JS runtime, YouTube downloads may fail, be extremely slow, or be unstable." -ForegroundColor Yellow
+    Write-Host "We highly recommend installing Deno (https://deno.com/) or Node.js (https://nodejs.org/)." -ForegroundColor Yellow
+    Write-Host ""
 }
 
 # Extension ID

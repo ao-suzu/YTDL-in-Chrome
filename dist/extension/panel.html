@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT Downloader</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 360px;
+      min-height: 200px;
+      background: #0f0f0f;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* サイドバー時は幅を100%に */
+    @media (min-width: 361px) {
+      body { width: 100%; }
+    }
+
+    .header {
+      background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header svg { width: 24px; height: 24px; flex-shrink: 0; }
+    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+
+    /* タブナビゲーション */
+    .tab-nav {
+      display: flex;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: #ff0000;
+    }
+
+    .content {
+      padding: 16px;
+      display: none;
+    }
+    .content.active {
+      display: block;
+    }
+
+    /* ===== 動画情報 ===== */
+    .video-info {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: flex-start;
+    }
+
+    .thumbnail-placeholder, .thumbnail-wrap {
+      width: 100px;
+      height: 56px;
+      border-radius: 6px;
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .thumbnail {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .type-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 4px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+    }
+
+    .video-title {
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    /* ===== フォーム群 ===== */
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .field input, .field select {
+      width: 100%;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus { border-color: #ff4444; }
+
+    .format-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .btn-download {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .btn-download:hover:not(:disabled) {
+      background: linear-gradient(135deg, #ff3333 0%, #ee0000 100%);
+      transform: translateY(-1px);
+    }
+    .btn-download:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ===== エラー・非YouTube ===== */
+    .not-youtube {
+      text-align: center;
+      padding: 24px 16px;
+      color: #555;
+    }
+    .not-youtube svg { width: 40px; height: 40px; margin-bottom: 10px; opacity: 0.4; }
+    .not-youtube p { font-size: 13px; margin-bottom: 8px; }
+
+    .host-warning {
+      background: #1a1200;
+      border: 1px solid #443200;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #ffa500;
+      margin-bottom: 12px;
+      line-height: 1.5;
+      display: none;
+    }
+
+    /* ===== ダウンロードリスト ===== */
+    .dl-item {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .dl-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .dl-title-text {
+      font-size: 12px;
+      font-weight: 600;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+    .dl-status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .status-running { background: rgba(0,120,255,0.2); color: #4da6ff; }
+    .status-done { background: rgba(0,200,80,0.2); color: #00e676; }
+    .status-error { background: rgba(255,50,50,0.2); color: #ff6666; }
+    .status-paused { background: rgba(150,150,150,0.2); color: #aaa; }
+    
+    .dl-progress-bg {
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    .dl-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff0000, #ff6b6b);
+      transition: width 0.3s;
+    }
+    .dl-progress-fill.done { background: #00e676; }
+    .dl-progress-fill.error { background: #ff6666; }
+    .dl-progress-fill.paused { background: #aaa; }
+
+    .dl-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #888;
+    }
+    
+    /* リストセクション用 */
+    .list-section-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #aaa;
+      margin: 16px 0 8px 0;
+      padding-left: 2px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 4px;
+    }
+    .list-section-divider {
+      margin: 16px 0;
+      border-top: 1px dashed #444;
+    }
+
+    .ctrl-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ctrl-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .ctrl-btn.cancel-btn {
+      color: #ff6666;
+    }
+    .ctrl-btn.cancel-btn:hover {
+      background: rgba(255,102,102,0.2);
+    }
+    .ctrl-btn.retry-btn {
+      color: #ffcc00;
+    }
+    .ctrl-btn.retry-btn:hover {
+      background: rgba(255,204,0,0.2);
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+      padding: 20px 0;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <svg viewBox="0 0 24 24" fill="white">
+    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.84 1.56V6.79a4.85 4.85 0 01-1.07-.1z"/>
+  </svg>
+  <h1 style="flex:1;">YT Downloader <span id="appVersion" style="font-size:10px; color:#aaa; font-weight:normal; vertical-align:middle; margin-left:4px;"></span></h1>
+  <button id="btnReload" style="background:none; border:none; color:white; cursor:pointer;" title="現在の動画情報を再取得">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+  </button>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" data-target="page-main">動画取得</button>
+  <button class="tab-btn" data-target="page-dl">ダウンロード</button>
+  <button class="tab-btn" data-target="page-settings">設定</button>
+</div>
+
+<!-- =========================
+     メインタブ（動画取得）
+     ========================= -->
+<div id="page-main" class="content active">
+  <div id="hostWarning" class="host-warning">
+    ⚠️ Native Hostが見つかりません。<br>
+    <code>ex/host/install.bat</code> を実行してください。
+  </div>
+
+  <div id="ytContent" style="display:none">
+    <div class="video-info">
+      <div id="thumbnailWrap" class="thumbnail-placeholder">
+        <svg viewBox="0 0 24 24" fill="#444" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <div id="videoTitle" class="video-title">動画情報を読み込み中...</div>
+    </div>
+
+    <!-- URLは隠しフィールド（必要に応じて表示してもOK） -->
+    <input type="hidden" id="urlInput" />
+
+    <div class="format-row">
+      <div class="field">
+        <label>形式</label>
+        <select id="formatSelect">
+          <option value="mp3">🎵 MP3</option>
+          <option value="mp4">🎬 MP4</option>
+          <option value="m4a" selected>🎵 M4A</option>
+          <option value="best">⭐ 最高品質</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>品質</label>
+        <select id="qualitySelect">
+          <option value="320k">320kbps</option>
+          <option value="192k" selected>192kbps</option>
+          <option value="128k">128kbps</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="playlistOptions" style="display:none; margin-bottom:12px; font-size:12px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#fff;">
+        <input type="checkbox" id="dlPlaylistCheck">
+        <strong>再生リスト全体をダウンロード</strong>
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#888; margin-top:8px; margin-left:24px;">
+        <input type="checkbox" id="playlistFolderCheck" disabled>
+        再生リスト名のフォルダを作成してまとめる
+      </label>
+    </div>
+
+    <button id="downloadBtn" class="btn-download">⬇ ダウンロード開始</button>
+  </div>
+
+  <!-- YouTube以外のページ -->
+  <div id="notYouTube" class="not-youtube">
+    <svg viewBox="0 0 24 24" fill="#555"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.84 1.56V6.79a4.85 4.85 0 01-1.07-.1z"/></svg>
+    <p>YouTubeのページを開いてください</p>
+    <button class="btn-download" id="forceDetectBtn" style="font-size:12px; padding:6px; width:auto; margin:0 auto; display:block;">検出を強制</button>
+  </div>
+
+  <!-- 手動URL指定 -->
+  <div class="manual-dl-section" style="margin-top:20px; border-top:1px solid #333; padding-top:16px;">
+    <h3 style="font-size:12px; color:#aaa; margin-bottom:10px;">URLを直接入力してダウンロード</h3>
+    <div class="field">
+      <input type="text" id="manualUrlInput" placeholder="https://www.youtube.com/watch?v=..." />
+    </div>
+    <div class="format-row">
+      <div class="field">
+        <label>形式</label>
+        <select id="manualFormatSelect">
+          <option value="mp3">🎵 MP3</option>
+          <option value="mp4">🎬 MP4</option>
+          <option value="m4a" selected>🎵 M4A</option>
+          <option value="best">⭐ 最高品質</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>品質</label>
+        <select id="manualQualitySelect">
+          <option value="320k">320kbps</option>
+          <option value="192k" selected>192kbps</option>
+          <option value="128k">128kbps</option>
+        </select>
+      </div>
+    </div>
+    <button id="manualDownloadBtn" class="btn-download" style="background:#444; color:#fff;">⬇ URLからダウンロード</button>
+    
+    <div style="margin-top:15px; padding:10px; background:rgba(255,255,255,0.05); border-radius:6px; border-left:3px solid #ffcc00;">
+      <p style="font-size:11px; color:#ddd; line-height:1.5;">
+        <strong style="color:#ffcc00;">💡 おすすめの形式は「M4A」です</strong><br>
+        MP3は変換処理に時間がかかりますが、M4AならYouTubeの音質を落とさず、<strong style="color:#fff;">数倍速くダウンロード</strong>できます。iPodやWalkman、スマホでもそのまま再生可能です。
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- =========================
+     ダウンロードタブ
+     ========================= -->
+<div id="page-dl" class="content">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <h3 style="font-size:13px; color:#aaa;">進行中・履歴</h3>
+    <button id="btnClearCompleted" class="cancel-btn">完了/エラーをクリア</button>
+  </div>
+  <div id="dlList">
+    <div class="empty-msg">ダウンロード履歴がありません</div>
+  </div>
+</div>
+
+<!-- =========================
+     設定タブ
+     ========================= -->
+<div id="page-settings" class="content">
+  <div class="field">
+    <label>表示モード</label>
+    <select id="uiModeSelect">
+      <option value="popup">ポップアップ（右上アイコン）</option>
+      <option value="sidebar">サイドバー（横に常駐）</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>保存先フォルダ（絶対パス）</label>
+    <div style="display:flex; gap:6px;">
+      <input type="text" id="outputDir" placeholder="空欄時は ~/Downloads" style="flex:1;" />
+      <button id="btnSelectFolder" style="padding:0 12px; background:#333; border:none; border-radius:6px; color:#fff; cursor:pointer;">選択</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>同時ダウンロード数</label>
+    <select id="maxConcurrentSelect">
+      <option value="1">1（安定・推奨）</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
+  </div>
+  <p style="font-size:11px; color:#666; margin-top:16px;">
+    変更は自動的に保存されます。<br>
+    サイドバー表示を使うと、ブラウザの横にずっと表示しておけます。<br>
+    同時DL数を増やすとffmpeg変換が遅くなる場合があります。
+  </p>
+</div>
+
+<script src="panel.js"></script>
+</body>
+</html>
