@@ -29,6 +29,7 @@ const els = {
   uiModeSelect: document.getElementById('uiModeSelect'),
   outputDir: document.getElementById('outputDir'),
   btnSelectFolder: document.getElementById('btnSelectFolder'),
+  maxConcurrentSelect: document.getElementById('maxConcurrentSelect'),
 
   // 手動DL関連
   manualUrlInput: document.getElementById('manualUrlInput'),
@@ -64,6 +65,9 @@ async function init() {
   // 保存先読み込み
   chrome.runtime.sendMessage({ action: 'getSettings' }, res => {
     if (res?.settings?.outputDir) els.outputDir.value = res.settings.outputDir;
+    if (res?.settings?.maxConcurrent && els.maxConcurrentSelect) {
+      els.maxConcurrentSelect.value = res.settings.maxConcurrent;
+    }
   });
 
   // dlListのイベント委譲（Event Delegation）によるクリック判定
@@ -85,6 +89,12 @@ async function init() {
     if (resumeBtn) {
       resumeBtn.style.opacity = '0.5';
       chrome.runtime.sendMessage({ action: 'resume', id: parseInt(resumeBtn.dataset.id) });
+      return;
+    }
+    const retryBtn = e.target.closest('.retry-btn');
+    if (retryBtn) {
+      retryBtn.style.opacity = '0.5';
+      chrome.runtime.sendMessage({ action: 'retry', id: parseInt(retryBtn.dataset.id) });
       return;
     }
   });
@@ -176,6 +186,16 @@ function setupSettings() {
             settings: { outputDir: res.path } 
           });
         }
+      });
+    });
+  }
+
+  // 同時ダウンロード数の変更
+  if (els.maxConcurrentSelect) {
+    els.maxConcurrentSelect.addEventListener('change', () => {
+      chrome.runtime.sendMessage({
+        action: 'setSettings',
+        settings: { maxConcurrent: parseInt(els.maxConcurrentSelect.value) }
       });
     });
   }
@@ -460,6 +480,9 @@ function renderList(tasks) {
     }
   });
 
+  // 履歴は完了日時（または開始日時）の新しい順にソート
+  history.sort((a, b) => (b.completedAt || b.startedAt) - (a.completedAt || a.startedAt));
+
   let html = '';
 
   // --- 進行中 ---
@@ -538,6 +561,12 @@ function renderList(tasks) {
 
         let subLine = `${t.format.toUpperCase()} • ${t.percentText || (t.percent ? t.percent+'%' : '')}`;
 
+        let ctrlBtns = '';
+        if (t.status === 'error' || t.status === 'cancelled' || t.status === 'aborted') {
+          const retryIcon = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>`;
+          ctrlBtns = `<button class="ctrl-btn retry-btn" data-id="${t.id}" title="再試行">${retryIcon}</button>`;
+        }
+
         html += `
           <div class="dl-item">
             <div class="dl-item-header">
@@ -547,8 +576,9 @@ function renderList(tasks) {
             <div class="dl-progress-bg" style="opacity:0.5;">
               <div class="dl-progress-fill ${pCls}" style="width:${t.percent || 0}%"></div>
             </div>
-            <div class="dl-meta">
+            <div class="dl-meta" style="display:flex; justify-content:space-between; align-items:center;">
               <span>${subLine}</span>
+              ${ctrlBtns ? `<div class="ctrl-group" style="display:flex; gap:6px;">${ctrlBtns}</div>` : ''}
             </div>
             ${t.error ? `<div style="color:#ff6666;font-size:10px;margin-top:4px;">${t.error}</div>` : ''}
           </div>

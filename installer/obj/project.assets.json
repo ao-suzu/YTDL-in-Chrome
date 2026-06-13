@@ -1,0 +1,111 @@
+{
+  "version": 3,
+  "targets": {
+    "native,Version=v0.0": {
+      "WixToolset.UI.wixext/7.0.0": {
+        "type": "package",
+        "build": {
+          "build/WixToolset.UI.wixext.targets": {}
+        }
+      },
+      "WixToolset.Util.wixext/7.0.0": {
+        "type": "package",
+        "build": {
+          "build/WixToolset.Util.wixext.targets": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "WixToolset.UI.wixext/7.0.0": {
+      "sha512": "8gjhm6oWo++97yEKkm8wEkw2EqY5em3yCUXrSh/AIyU23IaazB2zrrpbayh4CnGJSaG2ZAHfhA5m9VrwqmPw0A==",
+      "type": "package",
+      "path": "wixtoolset.ui.wixext/7.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "OSMFEULA.txt",
+        "README.md",
+        "build/CheckLicenseAcceptance.targets",
+        "build/WixToolset.UI.wixext.targets",
+        "icon.png",
+        "wixext7/WixToolset.UI.wixext.dll",
+        "wixtoolset.ui.wixext.7.0.0.nupkg.sha512",
+        "wixtoolset.ui.wixext.nuspec"
+      ]
+    },
+    "WixToolset.Util.wixext/7.0.0": {
+      "sha512": "Ecz/118E0DcVKl/PFe1T6jJieY7RYAGZYfCBwcWodA6taqKx/LgFOev8o1mnNAfP7+NcdpCQNrcoww+EAtzPWQ==",
+      "type": "package",
+      "path": "wixtoolset.util.wixext/7.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "OSMFEULA.txt",
+        "README.md",
+        "build/CheckLicenseAcceptance.targets",
+        "build/WixToolset.Util.wixext.targets",
+        "icon.png",
+        "wixext7/WixToolset.Util.wixext.dll",
+        "wixtoolset.util.wixext.7.0.0.nupkg.sha512",
+        "wixtoolset.util.wixext.nuspec"
+      ]
+    }
+  },
+  "projectFileDependencyGroups": {
+    "native,Version=v0.0": [
+      "WixToolset.UI.wixext >= 7.0.0",
+      "WixToolset.Util.wixext >= 7.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\haru\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\haru\\dev\\YT\\original\\installer\\YTDownloader.wixproj",
+      "projectName": "YTDownloader_Setup",
+      "projectPath": "C:\\Users\\haru\\dev\\YT\\original\\installer\\YTDownloader.wixproj",
+      "packagesPath": "C:\\Users\\haru\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\haru\\dev\\YT\\original\\installer\\obj\\",
+      "projectStyle": "PackageReference",
+      "UsingMicrosoftNETSdk": false,
+      "configFilePaths": [
+        "C:\\Users\\haru\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "native"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "native": {
+          "targetAlias": "native",
+          "projectReferences": {}
+        }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "native": {
+        "targetAlias": "native",
+        "dependencies": {
+          "WixToolset.UI.wixext": {
+            "target": "Package",
+            "version": "[7.0.0, )"
+          },
+          "WixToolset.Util.wixext": {
+            "target": "Package",
+            "version": "[7.0.0, )"
+          }
+        }
+      }
+    }
+  }
+}

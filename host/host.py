@@ -36,11 +36,11 @@ def setup_logger() -> logging.Logger:
     logger = logging.getLogger('ytdl_host')
     logger.setLevel(logging.DEBUG)
 
-    # ログファイル（最大 5MB × 3世代ローテーション）
+    # ログファイル（最大 1MB × 1世代ローテーション）
     handler = RotatingFileHandler(
         LOG_FILE,
-        maxBytes=5 * 1024 * 1024,
-        backupCount=3,
+        maxBytes=1 * 1024 * 1024,
+        backupCount=1,
         encoding='utf-8',
     )
     handler.setLevel(logging.DEBUG)
@@ -319,7 +319,7 @@ def download(url: str, fmt: str, quality: str, output_dir: str | None):
         elif fmt == 'mp4':
             res = quality if quality.isdigit() else '1080'
             log.info(f'Format: video mp4 res<={res}')
-            ydl_opts['format'] = f'bestvideo[height<={res}][ext=mp4]+bestaudio[ext=m4a]/best[height<={res}][ext=mp4]/bestvideo[height<={res}]+bestaudio/best'
+            ydl_opts['format'] = f'bestvideo[height<={res}][ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[height<={res}][ext=mp4][vcodec^=avc1]/bestvideo[height<={res}][ext=mp4]+bestaudio[ext=m4a]/best[height<={res}][ext=mp4]/bestvideo[height<={res}]+bestaudio/best'
             ydl_opts['merge_output_format'] = 'mp4'
             ydl_opts['postprocessor_args'] = {
                 'merger': ['-vcodec', 'copy', '-acodec', 'aac']

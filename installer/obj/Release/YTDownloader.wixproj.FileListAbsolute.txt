@@ -1,0 +1,6 @@
+C:\Users\haru\dev\YT\original\installer\output\YTDownloader_Setup.msi
+C:\Users\haru\dev\YT\original\installer\output\YTDownloader_Setup.wixpdb
+C:\Users\haru\dev\YT\original\installer\obj\Release\YTDownloader.wixproj.CoreCompileInputs.cache
+C:\Users\haru\dev\YT\original\installer\obj\Release\YTDownloader_Setup.msi
+C:\Users\haru\dev\YT\original\installer\obj\Release\YTDownloader_Setup.wixpdb
+C:\Users\haru\dev\YT\original\installer\obj\Release\YTDownloader.wixproj.BindTracking-neutral.txt

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- ============================================================ -->
+  <!--  YT Downloader MSI Installer                                  -->
+  <!--  - Installs host files (host.py, yt-dlp, ffmpeg, etc.)       -->
+  <!--  - Installs extension files                                   -->
+  <!--  - Collects Extension ID via custom dialog                   -->
+  <!--  - Generates host_manifest_installed.json                    -->
+  <!--  - Registers Native Messaging Host in Chrome registry        -->
+  <!-- ============================================================ -->
+
+  <Package Name="YT Downloader"
+           Manufacturer="YT Downloader"
+           Version="1.1.0"
+           UpgradeCode="E8A3F1B2-7C4D-4E5F-9A6B-1D2E3F4A5B6C"
+           Scope="perUser"
+           Codepage="932"
+           Language="1041">
+
+    <!-- Allow major upgrades -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <!-- Embed cabinet into the MSI -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ========== Properties ========== -->
+    <Property Id="EXTENSION_ID" Secure="yes" />
+
+    <!-- Locate PowerShell -->
+    <Property Id="POWERSHELLEXE" Value="powershell.exe" />
+
+    <!-- ========== Directory Structure ========== -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="YTDownloader">
+        <Directory Id="DIR_Host" Name="host" />
+        <Directory Id="DIR_Extension" Name="extension" />
+        <Directory Id="DIR_ExtIcons" Name="extension_icons" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- ========== Component: Host Core Files ========== -->
+    <ComponentGroup Id="HostFiles" Directory="DIR_Host">
+      <Component Id="HostPy" Guid="A1B2C3D4-1111-4E5F-9A6B-100000000001">
+        <File Id="host_py" Source="..\host\host.py" KeyPath="yes" />
+      </Component>
+      <Component Id="HostManifestTemplate" Guid="A1B2C3D4-1111-4E5F-9A6B-100000000002">
+        <File Id="host_manifest_json" Source="..\host\host_manifest.json" KeyPath="yes" />
+      </Component>
+      <Component Id="HostSpec" Guid="A1B2C3D4-1111-4E5F-9A6B-100000000003">
+        <File Id="host_spec" Source="..\host\host.spec" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ========== Component: Host Binaries (large) ========== -->
+    <ComponentGroup Id="HostBinaries" Directory="DIR_Host">
+      <Component Id="YtDlpExe" Guid="A1B2C3D4-2222-4E5F-9A6B-200000000001">
+        <File Id="yt_dlp_exe" Source="..\host\yt-dlp.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="FfmpegExe" Guid="A1B2C3D4-2222-4E5F-9A6B-200000000002">
+        <File Id="ffmpeg_exe" Source="..\host\ffmpeg.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ========== Component: Setup Script ========== -->
+    <ComponentGroup Id="SetupScripts" Directory="DIR_Host">
+      <Component Id="SetupPs1" Guid="A1B2C3D4-3333-4E5F-9A6B-300000000001">
+        <File Id="setup_ps1" Source="setup_host.ps1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ========== Component: Extension Files ========== -->
+    <ComponentGroup Id="ExtensionFiles" Directory="DIR_Extension">
+      <Component Id="ExtManifest" Guid="A1B2C3D4-4444-4E5F-9A6B-400000000001">
+        <File Id="ext_manifest_json" Source="..\extension\manifest.json" KeyPath="yes" />
+      </Component>
+      <Component Id="ExtBackground" Guid="A1B2C3D4-4444-4E5F-9A6B-400000000002">
+        <File Id="ext_background_js" Source="..\extension\background.js" KeyPath="yes" />
+      </Component>
+      <Component Id="ExtContent" Guid="A1B2C3D4-4444-4E5F-9A6B-400000000003">
+        <File Id="ext_content_js" Source="..\extension\content.js" KeyPath="yes" />
+      </Component>
+      <Component Id="ExtPanel" Guid="A1B2C3D4-4444-4E5F-9A6B-400000000004">
+        <File Id="ext_panel_html" Source="..\extension\panel.html" KeyPath="yes" />
+      </Component>
+      <Component Id="ExtPanelJs" Guid="A1B2C3D4-4444-4E5F-9A6B-400000000005">
+        <File Id="ext_panel_js" Source="..\extension\panel.js" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ========== Component: Extension Icons ========== -->
+    <ComponentGroup Id="ExtensionIcons" Directory="DIR_ExtIcons">
+      <Component Id="Icon16" Guid="A1B2C3D4-5555-4E5F-9A6B-500000000001">
+        <File Id="icon16_png" Source="..\extension\icons\icon16.png" KeyPath="yes" />
+      </Component>
+      <Component Id="Icon48" Guid="A1B2C3D4-5555-4E5F-9A6B-500000000002">
+        <File Id="icon48_png" Source="..\extension\icons\icon48.png" KeyPath="yes" />
+      </Component>
+      <Component Id="Icon128" Guid="A1B2C3D4-5555-4E5F-9A6B-500000000003">
+        <File Id="icon128_png" Source="..\extension\icons\icon128.png" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ========== Component: Registry (Chrome NativeMessagingHost) ========== -->
+    <Component Id="RegistryEntries" Directory="INSTALLFOLDER" Guid="A1B2C3D4-6666-4E5F-9A6B-600000000001">
+      <RegistryKey Root="HKCU" Key="Software\Google\Chrome\NativeMessagingHosts\com.ytdownloader.host">
+        <RegistryValue Type="string" Value="[DIR_Host]host_manifest_installed.json" />
+      </RegistryKey>
+    </Component>
+
+    <!-- ========== Custom Action: Generate Manifest & Setup ========== -->
+    <!-- Set up the command line for the deferred custom action -->
+    <SetProperty Id="CA_RunSetup"
+                 Value="&quot;[POWERSHELLEXE]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[DIR_Host]setup_host.ps1&quot; -ExtensionId &quot;[EXTENSION_ID]&quot; -HostDir &quot;[DIR_Host]&quot;"
+                 Before="CA_RunSetup"
+                 Sequence="execute" />
+
+    <CustomAction Id="CA_RunSetup"
+                  BinaryRef="Wix4UtilCA_X86"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Return="check"
+                  Impersonate="yes" />
+
+    <!-- Cleanup custom action for uninstall -->
+    <SetProperty Id="CA_RunCleanup"
+                 Value="&quot;[POWERSHELLEXE]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;Remove-Item -Path 'HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.ytdownloader.host' -Force -ErrorAction SilentlyContinue; Remove-Item -Path '[DIR_Host]host_manifest_installed.json' -Force -ErrorAction SilentlyContinue; Remove-Item -Path '[DIR_Host]host_runner.bat' -Force -ErrorAction SilentlyContinue&quot;"
+                 Before="CA_RunCleanup"
+                 Sequence="execute" />
+
+    <CustomAction Id="CA_RunCleanup"
+                  BinaryRef="Wix4UtilCA_X86"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Return="ignore"
+                  Impersonate="yes" />
+
+    <!-- ========== Install Sequence ========== -->
+    <InstallExecuteSequence>
+      <Custom Action="CA_RunSetup" After="InstallFiles" Condition="NOT Installed AND NOT REMOVE" />
+      <Custom Action="CA_RunCleanup" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+
+    <!-- ========== Feature ========== -->
+    <Feature Id="Complete" Title="YT Downloader" Level="1">
+      <ComponentGroupRef Id="HostFiles" />
+      <ComponentGroupRef Id="HostBinaries" />
+      <ComponentGroupRef Id="SetupScripts" />
+      <ComponentGroupRef Id="ExtensionFiles" />
+      <ComponentGroupRef Id="ExtensionIcons" />
+      <ComponentRef Id="RegistryEntries" />
+    </Feature>
+
+    <!-- ========== UI ========== -->
+    <UIRef Id="WixUI_ExtensionId" />
+
+  </Package>
+</Wix>

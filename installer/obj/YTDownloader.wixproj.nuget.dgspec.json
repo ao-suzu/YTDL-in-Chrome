@@ -1,0 +1,55 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\haru\\dev\\YT\\original\\installer\\YTDownloader.wixproj": {}
+  },
+  "projects": {
+    "C:\\Users\\haru\\dev\\YT\\original\\installer\\YTDownloader.wixproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\haru\\dev\\YT\\original\\installer\\YTDownloader.wixproj",
+        "projectName": "YTDownloader_Setup",
+        "projectPath": "C:\\Users\\haru\\dev\\YT\\original\\installer\\YTDownloader.wixproj",
+        "packagesPath": "C:\\Users\\haru\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\haru\\dev\\YT\\original\\installer\\obj\\",
+        "projectStyle": "PackageReference",
+        "UsingMicrosoftNETSdk": false,
+        "configFilePaths": [
+          "C:\\Users\\haru\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "native"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "native": {
+            "targetAlias": "native",
+            "projectReferences": {}
+          }
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "native": {
+          "targetAlias": "native",
+          "dependencies": {
+            "WixToolset.UI.wixext": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            },
+            "WixToolset.Util.wixext": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            }
+          }
+        }
+      }
+    }
+  }
+}

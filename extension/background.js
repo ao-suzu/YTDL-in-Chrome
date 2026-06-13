@@ -3,7 +3,7 @@
 
 const HOST_NAME = 'com.ytdownloader.host';
 const VERSION = '1.1.0';
-const MAX_CONCURRENT = 1; // 同時ダウンロード制限（1本ずつ処理でffmpeg変換が最速）
+let maxConcurrent = 1; // 同時ダウンロード制限（設定から読み込み）
 
 // ========================================
 // 状態管理（メモリ + storage）
@@ -57,6 +57,11 @@ function getActiveCount() {
   return Array.from(downloadQueue.values()).filter(t => t.status === 'downloading').length;
 }
 
+async function loadMaxConcurrent() {
+  const { settings } = await chrome.storage.local.get('settings');
+  maxConcurrent = settings?.maxConcurrent || 1;
+}
+
 async function startDownload(task) {
   task.status = 'pending';
   downloadQueue.set(task.id, task);
@@ -67,7 +72,7 @@ async function startDownload(task) {
 
 // キューを処理する
 async function processQueue() {
-  if (getActiveCount() >= MAX_CONCURRENT) return;
+  if (getActiveCount() >= maxConcurrent) return;
 
   // 古い順（ID順）に待機中のタスクを探す
   const pendingTasks = Array.from(downloadQueue.values())
@@ -78,7 +83,7 @@ async function processQueue() {
 
   // 上限に達するまで開始
   for (const task of pendingTasks) {
-    if (getActiveCount() >= MAX_CONCURRENT) break;
+    if (getActiveCount() >= maxConcurrent) break;
     await startDownloadProcess(task);
   }
 }
@@ -118,6 +123,7 @@ async function startDownloadProcess(task) {
       } else {
         task.status = 'error';
         task.error  = msg.error || '不明なエラー';
+        task.completedAt = Date.now();
       }
       task._port = null;
       broadcast({ action: 'queueUpdate', tasks: getTaskList() });
@@ -132,9 +138,11 @@ async function startDownloadProcess(task) {
     if (task.status === 'downloading' || task.status === 'pending') {
       task.status = 'error';
       task.error  = chrome.runtime.lastError?.message || '接続が切断されました';
+      task.completedAt = Date.now();
       task._port = null;
       broadcast({ action: 'queueUpdate', tasks: getTaskList() });
       await persistState();
+      await appendHistory(task);
       processQueue();
     }
   });
@@ -163,6 +171,7 @@ async function cancelDownload(id) {
     task._port = null;
   }
   task.status = 'cancelled';
+  task.completedAt = Date.now();
   broadcast({ action: 'queueUpdate', tasks: getTaskList() });
   await persistState();
   processQueue();
@@ -404,6 +413,44 @@ async function handle(req, sendResponse) {
         break;
       }
 
+      case 'retry': {
+        const id = req.id;
+        const oldTask = historyCache.find(t => t.id === id) || downloadQueue.get(id);
+        if (oldTask) {
+          // 元タスクをキューと履歴から削除
+          downloadQueue.delete(id);
+          historyCache = historyCache.filter(t => t.id !== id);
+          await chrome.storage.local.set({ downloadHistory: historyCache });
+          broadcast({ action: 'historyUpdate', history: historyCache });
+
+          const newTask = {
+            id:          nextId++,
+            url:         oldTask.url,
+            title:       oldTask.title,
+            thumbnail:   oldTask.thumbnail,
+            format:      oldTask.format,
+            quality:     oldTask.quality,
+            outputDir:   oldTask.outputDir,
+            status:      'pending',
+            percent:     0,
+            percentText: '0%',
+            speed:       '',
+            eta:         '',
+            path:        '',
+            error:       '',
+            startedAt:   Date.now(),
+            completedAt: null,
+            _port:       null,
+          };
+          downloadQueue.set(newTask.id, newTask);
+          startDownload(newTask);
+          sendResponse({ success: true, id: newTask.id });
+        } else {
+          sendResponse({ success: false, error: 'Task not found' });
+        }
+        break;
+      }
+
       case 'clearCompleted': {
         await clearCompleted();
         sendResponse({ success: true });
@@ -441,7 +488,15 @@ async function handle(req, sendResponse) {
       }
 
       case 'setSettings': {
-        await chrome.storage.local.set({ settings: req.settings });
+        // 既存設定とマージして保存
+        const { settings: current = defaultSettings() } = await chrome.storage.local.get('settings');
+        const merged = { ...current, ...req.settings };
+        await chrome.storage.local.set({ settings: merged });
+        // maxConcurrentを即時反映
+        if (merged.maxConcurrent) {
+          maxConcurrent = merged.maxConcurrent;
+          processQueue(); // 上限が増えた場合に待機中タスクを開始
+        }
         sendResponse({ success: true });
         break;
       }
@@ -483,6 +538,7 @@ function defaultSettings() {
     saveHistory:    true,
     historyMax:     100,
     autoCleanDays:  30,
+    maxConcurrent:  1,
   };
 }
 
@@ -499,6 +555,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 // SW起動時にも復元
 (async () => {
   await restoreState();
+  await loadMaxConcurrent();
   const mode = await getUiMode();
   await setUiMode(mode);
 })();

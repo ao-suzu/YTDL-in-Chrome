@@ -283,6 +283,12 @@
     .ctrl-btn.cancel-btn:hover {
       background: rgba(255,102,102,0.2);
     }
+    .ctrl-btn.retry-btn {
+      color: #ffcc00;
+    }
+    .ctrl-btn.retry-btn:hover {
+      background: rgba(255,204,0,0.2);
+    }
 
     .empty-msg {
       text-align: center;
@@ -439,9 +445,20 @@
       <button id="btnSelectFolder" style="padding:0 12px; background:#333; border:none; border-radius:6px; color:#fff; cursor:pointer;">選択</button>
     </div>
   </div>
+  <div class="field">
+    <label>同時ダウンロード数</label>
+    <select id="maxConcurrentSelect">
+      <option value="1">1（安定・推奨）</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
+  </div>
   <p style="font-size:11px; color:#666; margin-top:16px;">
     変更は自動的に保存されます。<br>
-    サイドバー表示を使うと、ブラウザの横にずっと表示しておけます。
+    サイドバー表示を使うと、ブラウザの横にずっと表示しておけます。<br>
+    同時DL数を増やすとffmpeg変換が遅くなる場合があります。
   </p>
 </div>
 

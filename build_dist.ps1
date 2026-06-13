@@ -84,6 +84,16 @@ if (Test-Path $srcReadme) {
     Write-Host "      README.md OK" -ForegroundColor Green
 }
 
+# --- 5. Clean Temporary Build Files ---------------------------
+Write-Host "Cleaning temporary PyInstaller folders..." -ForegroundColor Yellow
+$HostSrcDir = Join-Path $OriginalDir "host"
+Set-Location $HostSrcDir
+# プロセスがファイルハンドルを解放するのを少し待つよ
+Start-Sleep -Seconds 2
+if (Test-Path "build") { Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue }
+if (Test-Path "dist_py") { Remove-Item -Recurse -Force "dist_py" -ErrorAction SilentlyContinue }
+Write-Host "      OK" -ForegroundColor Green
+
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host " Build complete!" -ForegroundColor Cyan
